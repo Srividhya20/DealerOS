@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import "./App.css";
 
@@ -20,28 +19,27 @@ function App() {
 
   // Fetch all records for summary cards
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
 
     const fetchAllDisagreements = async () => {
       setAllDisagreements([]);
 
       try {
-        const response = await fetch(
-          `${API_URL}?${new URLSearchParams({ org })}`
-        );
+        const params = new URLSearchParams({ org });
+
+        const response = await fetch(`${API_URL}?${params.toString()}`, {
+          signal: controller.signal,
+        });
 
         if (!response.ok) {
           throw new Error("Failed to fetch summary data");
         }
 
         const data = await response.json();
-
-        if (active) {
-          setAllDisagreements(data);
-        }
+        setAllDisagreements(data);
       } catch (err) {
-        if (active) {
-          console.error(err.message);
+        if (err.name !== "AbortError") {
+          console.error("Summary fetch error:", err.message);
         }
       }
     };
@@ -49,13 +47,13 @@ function App() {
     fetchAllDisagreements();
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [org]);
 
   // Fetch filtered and sorted disagreements
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
 
     const fetchDisagreements = async () => {
       setLoading(true);
@@ -70,7 +68,10 @@ function App() {
         }
 
         const response = await fetch(
-          `${API_URL}?${params.toString()}`
+          `${API_URL}?${params.toString()}`,
+          {
+            signal: controller.signal,
+          }
         );
 
         if (!response.ok) {
@@ -78,16 +79,13 @@ function App() {
         }
 
         const data = await response.json();
-
-        if (active) {
-          setDisagreements(data);
-        }
+        setDisagreements(data);
       } catch (err) {
-        if (active) {
+        if (err.name !== "AbortError") {
           setError(err.message);
         }
       } finally {
-        if (active) {
+        if (!controller.signal.aborted) {
           setLoading(false);
         }
       }
@@ -96,7 +94,7 @@ function App() {
     fetchDisagreements();
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [org, reason, sort]);
 
